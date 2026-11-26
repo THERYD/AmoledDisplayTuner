@@ -172,16 +172,17 @@ public class OsdForm : Form {
 
 // ======================= UI KIT =======================
 public static class AmoTheme {
-    public static Color Bg = Color.FromArgb(11, 12, 16);
-    public static Color Card = Color.FromArgb(20, 22, 30);
-    public static Color Card2 = Color.FromArgb(30, 33, 45);
-    public static Color Border = Color.FromArgb(46, 50, 68);
-    public static Color Hover = Color.FromArgb(44, 40, 68);
-    public static Color Text = Color.FromArgb(232, 234, 242);
-    public static Color Dim = Color.FromArgb(140, 146, 166);
-    public static Color Accent = Color.FromArgb(177, 76, 255);
-    public static Color AccentDark = Color.FromArgb(58, 30, 92);
-    public static Color Cyan = Color.FromArgb(0, 224, 255);
+    // Green gradient theme: deep emerald -> fresh lime
+    public static Color Bg = Color.FromArgb(8, 11, 9);
+    public static Color Card = Color.FromArgb(15, 20, 17);
+    public static Color Card2 = Color.FromArgb(23, 30, 26);
+    public static Color Border = Color.FromArgb(38, 52, 44);
+    public static Color Hover = Color.FromArgb(30, 50, 38);
+    public static Color Text = Color.FromArgb(230, 240, 233);
+    public static Color Dim = Color.FromArgb(136, 156, 144);
+    public static Color Accent = Color.FromArgb(18, 200, 110);
+    public static Color AccentDark = Color.FromArgb(12, 62, 36);
+    public static Color Cyan = Color.FromArgb(170, 240, 60);
     public static float Scale = 1f;
     public static int S(float v) { return (int)Math.Round(v * Scale); }
 }
@@ -700,10 +701,13 @@ $CfgFile = Join-Path $CfgDir 'config-v2.json'
 $AvatarFile = Join-Path $CfgDir 'creator.jpg'
 $AvatarTmp  = Join-Path $CfgDir 'creator.part'
 $Startup = Join-Path ([Environment]::GetFolderPath('Startup')) 'AmoledDisplayTuner.cmd'
+$PermCopy = Join-Path $CfgDir 'AmoledDisplayTuner.bat'
+$RunKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$RunName  = 'AmoledDisplayTuner'
 
 function To-Hash($o) { $h = @{}; if ($o) { foreach ($p in $o.PSObject.Properties) { $h[$p.Name] = $p.Value } }; $h }
 function Load-Config {
-    $c = @{ Displays = @{}; Custom = @{}; Active = @{}; Modified = @{}; Lock = $false; Link = $false; Tray = $true; WinW = 0; WinH = 0; WinMax = $false }
+    $c = @{ Displays = @{}; Custom = @{}; Active = @{}; Modified = @{}; Lock = $false; Link = $false; Tray = $true; Permanent = $false; WinW = 0; WinH = 0; WinMax = $false }
     if (Test-Path $CfgFile) {
         try {
             $o = Get-Content $CfgFile -Raw | ConvertFrom-Json
@@ -715,6 +719,7 @@ function Load-Config {
             if ($o.PSObject.Properties['Lock']) { $c.Lock = [bool]$o.Lock }
             if ($o.PSObject.Properties['Link']) { $c.Link = [bool]$o.Link }
             if ($o.PSObject.Properties['Tray']) { $c.Tray = [bool]$o.Tray }
+            if ($o.PSObject.Properties['Permanent']) { $c.Permanent = [bool]$o.Permanent }
         } catch {}
     }
     $c
@@ -983,13 +988,16 @@ $flow.add_Resize({ Size-Tiles })
 
 # action bar
 $bar = New-Card $cardF 14 560 1128 56 'Bottom, Left, Right' $cPanel2 14
-$lblSelTitle = New-Label $bar 'Click any filter to apply it' 18 8 520 22 $fBold $cText 'Top, Left'
-$lblSelSub = New-Label $bar 'Then customise it and save it as your own preset.' 18 29 560 20 $fSmall $cDim 'Top, Left'
+$lblSelTitle = New-Label $bar 'Click any filter to apply it' 18 8 360 22 $fBold $cText 'Top, Left'
+$lblSelSub = New-Label $bar 'Then customise it and save it as your own preset.' 18 29 370 20 $fSmall $cDim 'Top, Left'
+$bPerm = New-Btn $bar 'Apply permanently' 390 10 178 36 $true 'Top, Right' ([string][char]0xE718)
+$tips.SetToolTip($bPerm, 'Keep this look after restart, sleep and games')
 $bDel  = New-Btn $bar 'Delete' 1006 10 110 36 $false 'Top, Right' ([string][char]0xE74D)
 $bRen  = New-Btn $bar 'Rename' 888 10 110 36 $false 'Top, Right' ([string][char]0xE8AC)
 $bSave = New-Btn $bar 'Save as my preset' 714 10 166 36 $true 'Top, Right' ([string][char]0xE74E)
 $bEdit = New-Btn $bar 'Customise' 576 10 130 36 $false 'Top, Right' ([string][char]0xE70F)
 $bEdit.add_Click({ Show-Page 'Tune' })
+$bPerm.add_Click({ Set-Permanent (-not $Cfg.Permanent) })
 $bSave.add_Click({ Save-NewPreset })
 $bRen.add_Click({ Rename-Preset (Current-Name) })
 $bDel.add_Click({ Delete-Preset (Current-Name) })
@@ -1195,7 +1203,8 @@ $btnPower    = New-Btn $pR 'Effects: ON' 16 264 252 36 $true $null ([string][cha
 $btnResetOne = New-Btn $pR 'Reset display' 16 306 123 34
 $btnResetAll = New-Btn $pR 'Reset all' 145 306 123 34
 [void](New-Label $pR 'OPTIONS' 18 352 200 20 $fSec $cAccent)
-$tglStart = New-Toggle $pR 'Start with Windows' 16 376 252 28
+$tglStart = New-Toggle $pR 'Apply permanently' 16 376 252 28
+$tips.SetToolTip($tglStart, 'Starts with Windows and re-applies your look after restart, sleep and games')
 $tglLock  = New-Toggle $pR 'Keep applied (games / sleep)' 16 408 252 28
 $tglTray  = New-Toggle $pR 'Close button hides to tray' 16 440 252 28
 $tips.SetToolTip($tglLock, 'Re-applies your look every 3 seconds, in case a game or sleep resets it')
@@ -1288,7 +1297,7 @@ $tSave  = New-Object System.Windows.Forms.Timer; $tSave.Interval = 800
 $tHw    = New-Object System.Windows.Forms.Timer; $tHw.Interval = 250
 $tLock  = New-Object System.Windows.Forms.Timer; $tLock.Interval = 3000
 $tId    = New-Object System.Windows.Forms.Timer; $tId.Interval = 2000
-$tBoot  = New-Object System.Windows.Forms.Timer; $tBoot.Interval = 8000
+$tBoot  = New-Object System.Windows.Forms.Timer; $tBoot.Interval = 2500; $St.BootN = 0
 $tPage  = New-Object System.Windows.Forms.Timer; $tPage.Interval = 15
 $tFade  = New-Object System.Windows.Forms.Timer; $tFade.Interval = 15
 
@@ -1315,7 +1324,11 @@ $tHw.add_Tick({
 })
 $tLock.add_Tick({ if (-not $St.Holding) { foreach ($s in $Scr) { [void](Apply-Screen $s) } } })
 $tId.add_Tick({ $tId.Stop(); foreach ($f in $St.IdForms) { $f.Close(); $f.Dispose() }; $St.IdForms = @() })
-$tBoot.add_Tick({ $tBoot.Stop(); foreach ($s in $Scr) { [void](Apply-Screen $s) } })
+$tBoot.add_Tick({
+    foreach ($s in $Scr) { [void](Apply-Screen $s) }
+    $St.BootN++
+    if ($St.BootN -ge 6) { $tBoot.Stop() } else { $tBoot.Interval = 5000 * $St.BootN }
+})
 $tPage.add_Tick({
     $p = $St.AnimPage; $target = Px 12
     if (-not $p) { $tPage.Stop(); return }
@@ -1516,16 +1529,56 @@ $btnResetAll.add_Click({
 })
 $tglStart.add_CheckedChanged({
     if ($St.Busy) { return }
-    try {
-        if ($tglStart.Checked) {
-            "@echo off`r`ncall `"$env:AMO_SELF`" tray`r`n" | Set-Content -Path $Startup -Encoding ASCII
-            Set-Status 'Will start with Windows. Do not move this .bat file.' 'good'
-        } else {
-            if (Test-Path $Startup) { Remove-Item $Startup -Force }
-            Set-Status 'Removed from Windows startup' 'info'
-        }
-    } catch { Set-Status 'Could not change startup setting' 'bad' }
+    Set-Permanent $tglStart.Checked
 })
+# ---------- permanent apply ----------
+function Test-Permanent {
+    try { $v = (Get-ItemProperty -Path $RunKey -Name $RunName -ErrorAction Stop).$RunName; return [bool]$v } catch { return $false }
+}
+function Install-Permanent {
+    if (-not (Test-Path $CfgDir)) { New-Item -ItemType Directory -Path $CfgDir | Out-Null }
+    # keep a private copy so moving or deleting the original .bat does not break it
+    if ($env:AMO_SELF -and (Test-Path $env:AMO_SELF) -and ($env:AMO_SELF -ne $PermCopy)) { Copy-Item -LiteralPath $env:AMO_SELF -Destination $PermCopy -Force }
+    if (-not (Test-Path $PermCopy)) { throw 'App copy missing' }
+    if (-not (Test-Path $RunKey)) { New-Item -Path $RunKey -Force | Out-Null }
+    Set-ItemProperty -Path $RunKey -Name $RunName -Value ("cmd.exe /c `"`"$PermCopy`" autoapply`"")
+    if (Test-Path $Startup) { Remove-Item $Startup -Force }   # old startup method, avoid double start
+}
+function Uninstall-Permanent {
+    try { Remove-ItemProperty -Path $RunKey -Name $RunName -ErrorAction SilentlyContinue } catch {}
+    if (Test-Path $Startup) { Remove-Item $Startup -Force }
+}
+function Update-PermUI {
+    $St.Busy = $true
+    $tglStart.SetSilently($Cfg.Permanent)
+    $tglLock.SetSilently($Cfg.Lock)
+    $St.Busy = $false
+    if ($Cfg.Permanent) { $bPerm.Text = 'Permanent: ON'; $bPerm.Glyph = [string][char]0xE73E }
+    else { $bPerm.Text = 'Apply permanently'; $bPerm.Glyph = [string][char]0xE718 }
+
+    $miPerm.Checked = $Cfg.Permanent
+    $bPerm.Invalidate()
+}
+function Set-Permanent($on) {
+    try {
+        if ($on) {
+            if ($St.Off) { $St.Off = $false; Update-Power }
+            Install-Permanent
+            $Cfg.Permanent = $true; $Cfg.Lock = $true; $tLock.Start()
+            Apply-All; Save-Config
+            Set-Status 'Applied permanently - stays after restart, sleep and games' 'good'
+        } else {
+            Uninstall-Permanent
+            $Cfg.Permanent = $false; Save-Config
+            Set-Status 'Permanent apply turned off - look resets after restart' 'info'
+        }
+    } catch {
+        Set-Status "Could not apply permanently: $($_.Exception.Message)" 'bad'
+        $Cfg.Permanent = Test-Permanent
+    }
+    Update-PermUI
+}
+
 $tglLock.add_CheckedChanged({
     if ($St.Busy) { return }
     $Cfg.Lock = $tglLock.Checked; Save-Config
@@ -1556,9 +1609,10 @@ $menu = New-Object System.Windows.Forms.ContextMenuStrip; Style-Menu $menu
 $miOpen = New-MenuItem 'Open'; $miOpen.add_Click({ Show-Main })
 $miPresets = New-MenuItem 'Apply filter to all displays'
 $miPower = New-MenuItem 'Turn effects OFF'; $miPower.add_Click({ [void](Toggle-Power) })
+$miPerm = New-MenuItem 'Apply permanently'; $miPerm.add_Click({ Set-Permanent (-not $Cfg.Permanent) })
 $miAbout = New-MenuItem 'About creator'; $miAbout.add_Click({ Show-Main; Show-Page 'About' })
 $miExit = New-MenuItem 'Exit'; $miExit.add_Click({ $St.Exiting = $true; $form.Close() })
-foreach ($it in @($miOpen, $miPresets, $miPower, $miAbout)) { [void]$menu.Items.Add($it) }
+foreach ($it in @($miOpen, $miPresets, $miPower, $miPerm, $miAbout)) { [void]$menu.Items.Add($it) }
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)); [void]$menu.Items.Add($miExit)
 $menu.add_Opening({
     $miPresets.DropDownItems.Clear()
@@ -1627,8 +1681,11 @@ $form.add_Shown({
 # ---------- initial state ----------
 $St.Busy = $true
 $tglLink.SetSilently($Cfg.Link); $tglLock.SetSilently($Cfg.Lock); $tglTray.SetSilently($Cfg.Tray)
-$tglStart.SetSilently((Test-Path $Startup))
 $St.Busy = $false
+# older versions used the Startup folder - move them to the new permanent method
+if ((Test-Path $Startup) -and -not $Cfg.Permanent) { $Cfg.Permanent = $true; $Cfg.Lock = $true }
+if ($Cfg.Permanent) { try { Install-Permanent } catch {} } else { $Cfg.Permanent = Test-Permanent }
+Update-PermUI
 if ($Cfg.Lock) { $tLock.Start() }
 if ($Cfg.WinW -gt 0) { $form.Size = New-Object System.Drawing.Size($Cfg.WinW, $Cfg.WinH) }
 if ($Cfg.WinMax) { $form.WindowState = 'Maximized' }
